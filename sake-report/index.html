@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#7a1f3d" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="販売数量" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" href="icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="icon-180.png" />
+    <link rel="stylesheet" href="style.css" />
+    <title>販売数量集計</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  </head>
+  <body>
+    <header class="top">
+      <h1>販売数量集計 <small>Ca' del K</small></h1>
+    </header>
+
+    <main>
+      <!-- 取込 -->
+      <section id="tab-import" class="tab active">
+        <div class="card">
+          <h2>請求書PDFを取り込む</h2>
+          <p class="muted">タノムの「請求内容の詳細」→ダウンロードで保存したPDFを選んでください。複数まとめて選べます。</p>
+          <label class="btn primary file">
+            PDFを選ぶ
+            <input id="pdf-input" type="file" accept="application/pdf,.pdf" multiple hidden />
+          </label>
+        </div>
+        <div id="import-results"></div>
+        <div class="card">
+          <h2>取込済みの請求書</h2>
+          <div id="invoice-list"></div>
+        </div>
+      </section>
+
+      <!-- 集計 -->
+      <section id="tab-report" class="tab">
+        <div class="card controls">
+          <label>年度 <select id="fy-select"></select></label>
+          <div class="seg" id="metric-seg">
+            <button data-v="bottles" class="on">本数</button>
+            <button data-v="liters">リットル</button>
+            <button data-v="sales">売上</button>
+          </div>
+          <div class="seg" id="mode-seg">
+            <button data-v="category" class="on">容量区分</button>
+            <button data-v="kind">酒類品目</button>
+          </div>
+        </div>
+        <div id="report"></div>
+        <div class="card row">
+          <button class="btn" id="csv-btn">Excel用CSVを保存</button>
+        </div>
+      </section>
+
+      <!-- 商品 -->
+      <section id="tab-products" class="tab">
+        <div id="unregistered"></div>
+        <div class="card">
+          <h2>商品マスタ</h2>
+          <input id="product-search" type="search" placeholder="商品名で絞り込み" />
+          <div id="product-list"></div>
+        </div>
+        <div class="card">
+          <h2>バックアップ</h2>
+          <p class="muted">データはこの端末の中だけに保存されています。機種変更や別端末へ移すときに使います。</p>
+          <div class="row">
+            <button class="btn" id="backup-btn">バックアップを保存</button>
+            <label class="btn file">
+              バックアップから復元
+              <input id="restore-input" type="file" accept="application/json,.json" hidden />
+            </label>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <nav class="tabs">
+      <button data-tab="import" class="on">取込</button>
+      <button data-tab="report">集計</button>
+      <button data-tab="products">商品<span id="unreg-badge" class="badge" hidden></span></button>
+    </nav>
+
+    <dialog id="product-dialog">
+      <form method="dialog" id="product-form">
+        <h2 id="pd-title">商品を登録</h2>
+        <label>商品名 <input name="name" required /></label>
+        <label>商品コード <input name="code" placeholder="（任意）" /></label>
+        <div class="grid2">
+          <label>容量(ml) <input name="volumeMl" type="number" inputmode="numeric" required /></label>
+          <label>入数(ケース) <input name="caseSize" type="number" inputmode="numeric" /></label>
+        </div>
+        <label>酒類の品目 <select name="kind"></select></label>
+        <p class="muted">報告表の区分：<b id="pd-category"></b></p>
+        <div id="pd-alias"></div>
+        <div class="row end">
+          <button value="cancel" class="btn" formnovalidate>キャンセル</button>
+          <button value="ok" class="btn primary">保存</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script type="module" src="js/app.js"></script>
+  </body>
+</html>

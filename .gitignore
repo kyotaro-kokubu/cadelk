@@ -1,0 +1,4 @@
+# 請求書などの実データは公開しない
+samples/
+.claude/
+.DS_Store
