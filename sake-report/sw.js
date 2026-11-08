@@ -1,8 +1,8 @@
 // オフラインでも開けるようにアプリ本体をキャッシュする
-const CACHE = 'sake-report-v1';
+const CACHE = 'sake-report-v2';
 const ASSETS = [
   './', 'index.html', 'style.css', 'manifest.webmanifest', 'icon.svg',
-  'js/app.js', 'js/invoice-parser.js', 'js/normalize.js', 'js/master.js', 'js/store.js', 'js/aggregate.js',
+  'js/app.js', 'js/invoice-parser.js', 'js/normalize.js', 'js/master.js', 'js/store.js', 'js/aggregate.js', 'data/tanomu-products.json',
   'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js',
 ];

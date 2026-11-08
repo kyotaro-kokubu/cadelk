@@ -1,10 +1,10 @@
 // データ保存（サンプル段階は端末内の localStorage）
-import { nameKey } from './normalize.js';
+import { nameKey, cleanName } from './normalize.js';
 
 const KEY = 'cadelk.sakeReport.v1';
 
 function empty() {
-  return { products: [], lines: [], invoices: {} };
+  return { products: [], lines: [], invoices: {}, seededTanomuIds: [] };
 }
 
 let state = load();
@@ -61,6 +61,31 @@ export function addAlias(productId, rawName) {
   const k = nameKey(rawName);
   if (!p.keys.includes(k)) p.keys.push(k);
   save();
+}
+
+// タノム商品一覧から作った初期マスタを取り込む（一度取り込んだ商品は再追加しない）
+export function seedProducts(seed) {
+  state.seededTanomuIds ||= [];
+  const seeded = new Set(state.seededTanomuIds);
+  let added = 0;
+  for (const s of seed.products) {
+    if (seeded.has(s.tanomuId)) continue;
+    state.products.push({
+      id: crypto.randomUUID(),
+      tanomuId: s.tanomuId,
+      name: cleanName(s.rawName),
+      code: s.code,
+      volumeMl: s.volumeMl,
+      caseSize: s.caseSize,
+      kind: s.kind,
+      keys: [nameKey(s.rawName)],
+      source: 'tanomu',
+    });
+    state.seededTanomuIds.push(s.tanomuId);
+    added++;
+  }
+  if (added) save();
+  return added;
 }
 
 // ---- 請求書・明細 ----

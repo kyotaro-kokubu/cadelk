@@ -49,17 +49,41 @@ function lineStatus(l) {
 
 function renderPending() {
   const box = $('#import-results');
-  box.innerHTML = pending
-    .map((inv, idx) => {
-      if (inv.error) return `<div class="card error">${esc(inv.error)}</div>`;
-      const dup = store.hasInvoice(inv.invoiceNo);
-      const unreg = inv.lines.filter((l) => !store.findProduct(l)).length;
-      return `
-      <div class="card">
-        <h2>請求書 ${esc(inv.invoiceNo)} <small>${esc(inv.invoiceDate)}</small></h2>
-        <p class="muted">${esc(inv.customer)} 様 ／ ${inv.lines.length}明細 ／ 合計 ¥${fmt(inv.total)}
-          ${inv.sumOk === false ? '<br><b class="warn-text">明細の合計が小計と一致しません。読み取り結果を確認してください。</b>' : ''}
-          ${dup ? '<br><b class="warn-text">取込済みの請求書です。保存すると上書きします。</b>' : ''}
+  const valid = pending.filter((p) => !p.error);
+  const dupCount = valid.filter((p) => store.hasInvoice(p.invoiceNo)).length;
+  const newCount = valid.length - dupCount;
+  const summary =
+    valid.length > 1 || dupCount
+      ? `<div class="card summary ${dupCount ? 'has-dup' : ''}">
+          <p><b>${valid.length}件</b>を読み込みました：新規 <b>${newCount}件</b>${
+            dupCount ? ` ／ <span class="warn-text">取込済み <b>${dupCount}件</b></span>` : ''
+          }</p>
+          ${dupCount ? '<p class="muted">取込済みの請求書は、そのままでは保存しません（二重計上の防止）。内容が変わった場合だけ「上書き保存」を押してください。</p>' : ''}
+          <div class="row end">
+            <button class="btn" data-discard-all>すべて取り消し</button>
+            ${newCount ? `<button class="btn primary" data-commit-new>新規${newCount}件をまとめて保存</button>` : ''}
+          </div>
+        </div>`
+      : '';
+
+  box.innerHTML =
+    summary +
+    pending
+      .map((inv, idx) => {
+        if (inv.error) return `<div class="card error">${esc(inv.error)}</div>`;
+        const dup = store.hasInvoice(inv.invoiceNo);
+        const prev = dup ? store.getState().invoices[inv.invoiceNo] : null;
+        const unreg = inv.lines.filter((l) => !store.findProduct(l)).length;
+        return `
+      <details class="card pending ${dup ? 'dup' : ''}" ${pending.length <= 2 ? 'open' : ''}>
+        <summary>
+          ${dup ? '<span class="dup-label">取込済み</span>' : '<span class="new-label">新規</span>'}
+          <b>${esc(inv.invoiceDate)}</b> ${esc(inv.customer)} 様
+          <small class="muted">No.${esc(inv.invoiceNo)} ／ ${inv.lines.length}明細 ／ ¥${fmt(inv.total)}${unreg ? ` ／ 未登録${unreg}` : ''}</small>
+        </summary>
+        <p class="muted">
+          ${inv.sumOk === false ? '<b class="warn-text">明細の合計が小計と一致しません。読み取り結果を確認してください。</b><br>' : ''}
+          ${dup ? `<b class="warn-text">この請求書は ${esc(new Date(prev.importedAt).toLocaleString('ja-JP'))} に取込済みです。</b>` : ''}
         </p>
         <ul class="lines">
           ${inv.lines
@@ -74,19 +98,33 @@ function renderPending() {
         ${unreg ? `<p class="muted">未登録の商品が${unreg}件あります。登録しなくても保存できます（後から登録すれば集計に反映されます）。</p>` : ''}
         <div class="row end">
           <button class="btn" data-discard="${idx}">取り消し</button>
-          <button class="btn primary" data-commit="${idx}">保存する</button>
+          ${
+            dup
+              ? `<button class="btn danger" data-commit="${idx}">上書き保存</button>`
+              : `<button class="btn primary" data-commit="${idx}">保存する</button>`
+          }
         </div>
-      </div>`;
-    })
-    .join('');
+      </details>`;
+      })
+      .join('');
 }
 
 $('#import-results').addEventListener('click', (e) => {
   const t = e.target.closest('button');
   if (!t) return;
   if (t.dataset.commit) {
-    store.saveInvoice(pending[Number(t.dataset.commit)]);
+    const inv = pending[Number(t.dataset.commit)];
+    if (store.hasInvoice(inv.invoiceNo) && !confirm(`請求書 ${inv.invoiceNo} は取込済みです。上書きしますか？`)) return;
+    store.saveInvoice(inv);
     pending.splice(Number(t.dataset.commit), 1);
+    render();
+  } else if ('commitNew' in t.dataset) {
+    const fresh = pending.filter((p) => !p.error && !store.hasInvoice(p.invoiceNo));
+    fresh.forEach((p) => store.saveInvoice(p));
+    pending = pending.filter((p) => !fresh.includes(p));
+    render();
+  } else if ('discardAll' in t.dataset) {
+    pending = [];
     render();
   } else if (t.dataset.discard) {
     pending.splice(Number(t.dataset.discard), 1);
@@ -97,19 +135,49 @@ $('#import-results').addEventListener('click', (e) => {
   }
 });
 
+const openMonths = new Set();
 function renderInvoiceList() {
-  const invs = Object.values(store.getState().invoices).sort((a, b) =>
-    (b.invoiceDate || '').localeCompare(a.invoiceDate || ''),
+  const invs = Object.values(store.getState().invoices).sort(
+    (a, b) => (b.invoiceDate || '').localeCompare(a.invoiceDate || '') || b.invoiceNo.localeCompare(a.invoiceNo),
   );
-  $('#invoice-list').innerHTML = invs.length
-    ? `<ul class="simple">${invs
-        .map(
-          (i) => `<li><div><b>${esc(i.invoiceDate)}</b> ${esc(i.customer)} 様<br><small class="muted">No.${esc(i.invoiceNo)} ／ ¥${fmt(i.total)}</small></div>
-          <button class="btn small" data-del-invoice="${esc(i.invoiceNo)}">削除</button></li>`,
-        )
-        .join('')}</ul>`
-    : '<p class="muted">まだありません</p>';
+  if (!invs.length) {
+    $('#invoice-list').innerHTML = '<p class="muted">まだありません</p>';
+    return;
+  }
+  const byMonth = new Map();
+  for (const i of invs) {
+    const m = (i.invoiceDate || '不明').slice(0, 7);
+    if (!byMonth.has(m)) byMonth.set(m, []);
+    byMonth.get(m).push(i);
+  }
+  if (!openMonths.size) openMonths.add([...byMonth.keys()][0]); // 最新月だけ開く
+  $('#invoice-list').innerHTML = [...byMonth.entries()]
+    .map(([m, list]) => {
+      const [y, mm] = m.split('/');
+      const label = mm ? `${y}年${Number(mm)}月` : m;
+      const total = list.reduce((s, i) => s + (i.total || 0), 0);
+      return `<details class="month" data-month="${esc(m)}" ${openMonths.has(m) ? 'open' : ''}>
+        <summary><span class="m-label">${label}</span><span class="m-meta">${list.length}件 ／ ¥${fmt(total)}</span></summary>
+        <ul class="simple">${list
+          .map(
+            (i) => `<li><div><b>${esc(i.invoiceDate.slice(5))}</b> ${esc(i.customer)} 様<br><small class="muted">No.${esc(i.invoiceNo)} ／ ¥${fmt(i.total)}</small></div>
+            <button class="btn small" data-del-invoice="${esc(i.invoiceNo)}">削除</button></li>`,
+          )
+          .join('')}</ul>
+      </details>`;
+    })
+    .join('');
 }
+$('#invoice-list').addEventListener(
+  'toggle',
+  (e) => {
+    const m = e.target.dataset?.month;
+    if (!m) return;
+    if (e.target.open) openMonths.add(m);
+    else openMonths.delete(m);
+  },
+  true,
+);
 $('#invoice-list').addEventListener('click', (e) => {
   const no = e.target.dataset?.delInvoice;
   if (no && confirm(`請求書 ${no} の取込を取り消しますか？`)) {
@@ -231,20 +299,25 @@ function renderProducts() {
     : '';
 
   const q = nameKey($('#product-search').value || '');
-  const products = store
-    .getState()
-    .products.filter((p) => !q || p.keys.some((k) => k.includes(q)) || nameKey(p.name).includes(q))
+  const all = store.getState().products;
+  const products = all
+    .filter((p) => !q || p.keys.some((k) => k.includes(q)) || nameKey(p.name).includes(q) || p.code === $('#product-search').value.trim())
     .sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+  const LIMIT = 100;
+  $('#product-count').textContent = q ? `${products.length}件該当 ／ 全${all.length}件` : `全${all.length}件`;
   $('#product-list').innerHTML = products.length
     ? `<ul class="simple">${products
+        .slice(0, LIMIT)
         .map(
           (p) => `<li><div>${esc(p.name)}<br><small class="muted">${p.volumeMl}ml ／ ${esc(p.kind)} ／ ${esc(
             categoryFor(p.kind, p.volumeMl),
           )}${p.caseSize ? ` ／ 入数${p.caseSize}` : ''}${p.code ? ` ／ ${esc(p.code)}` : ''}</small></div>
           <button class="btn small" data-edit="${esc(p.id)}">編集</button></li>`,
         )
-        .join('')}</ul>`
-    : '<p class="muted">登録された商品はまだありません</p>';
+        .join('')}</ul>${
+        products.length > LIMIT ? `<p class="muted">先頭${LIMIT}件を表示中。商品名やコードで絞り込んでください。</p>` : ''
+      }`
+    : '<p class="muted">該当する商品はありません</p>';
 }
 $('#product-search').addEventListener('input', renderProducts);
 $('#tab-products').addEventListener('click', (e) => {
@@ -358,6 +431,14 @@ function render() {
   renderProducts();
 }
 render();
+
+// タノム商品一覧の初期マスタを取り込む（新しい商品だけ追加）
+fetch('data/tanomu-products.json')
+  .then((r) => (r.ok ? r.json() : null))
+  .then((seed) => {
+    if (seed && store.seedProducts(seed)) render();
+  })
+  .catch(() => {});
 
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});

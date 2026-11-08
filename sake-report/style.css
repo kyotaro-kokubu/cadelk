@@ -96,6 +96,33 @@ ul.simple li {
   padding: 8px 0; border-top: 1px solid var(--line); overflow-wrap: anywhere;
 }
 
+/* 取込プレビュー */
+.card.summary.has-dup { border-color: var(--warn); background: var(--warn-bg); }
+.card.summary p { margin: 0 0 6px; }
+details.card.pending > summary { cursor: pointer; list-style: none; line-height: 1.6; }
+details.card.pending > summary::-webkit-details-marker { display: none; }
+details.card.pending > summary small { display: block; }
+details.card.pending.dup { border: 2px solid var(--warn); }
+.dup-label, .new-label {
+  display: inline-block; font-size: 12px; font-weight: 700; padding: 1px 8px; border-radius: 99px; margin-right: 6px;
+}
+.dup-label { background: var(--warn); color: #fff; }
+.new-label { background: var(--ok-bg); color: var(--ok); }
+
+/* 月ごとの請求書一覧 */
+details.month { border-top: 1px solid var(--line); }
+details.month:first-child { border-top: 0; }
+details.month > summary {
+  display: flex; justify-content: space-between; align-items: center; gap: 8px;
+  padding: 12px 2px; cursor: pointer; list-style: none;
+}
+details.month > summary::-webkit-details-marker { display: none; }
+details.month > summary::before { content: '▸'; color: var(--muted); margin-right: 4px; }
+details.month[open] > summary::before { content: '▾'; }
+.m-label { font-weight: 700; flex: 1; }
+.m-meta { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+details.month ul.simple { margin-bottom: 8px; }
+
 .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 select, input:not([type=file]) {
   font: inherit; color: var(--text); background: var(--card);
